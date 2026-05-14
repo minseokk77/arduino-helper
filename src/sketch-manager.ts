@@ -71,7 +71,7 @@ void loop() {
         fs.writeFileSync(sketchFile, template, 'utf8');
 
         const doc = await vscode.workspace.openTextDocument(sketchFile);
-        const arduinoDoc = await vscode.languages.setTextDocumentLanguage(doc, 'arduino');
+        const arduinoDoc = await vscode.languages.setTextDocumentLanguage(doc, 'cpp');
         await vscode.window.showTextDocument(arduinoDoc, { preview: false });
 
         vscode.window.showInformationMessage(

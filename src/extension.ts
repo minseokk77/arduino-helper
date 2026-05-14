@@ -78,7 +78,10 @@ export async function activate(
     // 포맷터 등록
     context.subscriptions.push(
         vscode.languages.registerDocumentFormattingEditProvider(
-            'arduino', 
+            [
+                { language: 'arduino' },
+                { language: 'cpp', pattern: '**/*.ino' },
+            ],
             new ArduinoDocumentFormattingEditProvider()
         )
     );

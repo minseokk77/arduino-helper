@@ -2,7 +2,7 @@
     "name": "arduino-helper",
     "displayName": "%displayName%",
     "description": "%description%",
-    "version": "0.7.9",
+    "version": "0.7.10",
     "publisher": "minseokk7",
     "packageManager": "pnpm@10.18.3",
     "repository": {
@@ -18,7 +18,7 @@
         "Other"
     ],
     "activationEvents": [
-        "onLanguage:arduino",
+        "onLanguage:cpp",
         "onCommand:arduino.selectBoard",
         "onCommand:arduino.selectPort",
         "onCommand:arduino.selectBoardAndPort",
@@ -162,12 +162,12 @@
             "editor/title": [
                 {
                     "command": "arduino.compile",
-                    "when": "resourceLangId == arduino",
+                    "when": "resourceExtname == .ino || resourceLangId == arduino",
                     "group": "navigation@1"
                 },
                 {
                     "command": "arduino.upload",
-                    "when": "resourceLangId == arduino",
+                    "when": "resourceExtname == .ino || resourceLangId == arduino",
                     "group": "navigation@2"
                 }
             ]
@@ -217,20 +217,7 @@
                     "description": "%config.serialLineEnding.description%"
                 }
             }
-        },
-        "languages": [
-            {
-                "id": "arduino",
-                "aliases": [
-                    "Arduino",
-                    "arduino"
-                ],
-                "extensions": [
-                    ".ino"
-                ],
-                "configuration": "./language-configuration.json"
-            }
-        ]
+        }
     },
     "scripts": {
         "compile": "node esbuild.js && tsc -p ./",

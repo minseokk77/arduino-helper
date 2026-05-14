@@ -144,7 +144,7 @@ async function copyExampleToEditableWorkspace(examplePath: string, exampleName: 
     const inoFile = findFirstInoFile(targetFolder);
     if (inoFile) {
         const doc = await vscode.workspace.openTextDocument(inoFile);
-        const arduinoDoc = await vscode.languages.setTextDocumentLanguage(doc, 'arduino');
+        const arduinoDoc = await vscode.languages.setTextDocumentLanguage(doc, 'cpp');
         await vscode.window.showTextDocument(arduinoDoc, { preview: false });
     } else {
         await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(targetFolder), false);
