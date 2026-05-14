@@ -2,11 +2,12 @@
     "name": "arduino-helper",
     "displayName": "%displayName%",
     "description": "%description%",
-    "version": "0.7.6",
+    "version": "0.7.7",
     "publisher": "minseokk7",
+    "packageManager": "pnpm@10.18.3",
     "repository": {
         "type": "git",
-        "url": "https://github.com/minseokk7/arduino-helper"
+        "url": "https://github.com/minseokk77/arduino-helper"
     },
     "engines": {
         "vscode": "^1.85.0"
@@ -17,6 +18,25 @@
         "Other"
     ],
     "activationEvents": [
+        "onLanguage:arduino",
+        "onCommand:arduino.selectBoard",
+        "onCommand:arduino.selectPort",
+        "onCommand:arduino.selectBoardAndPort",
+        "onCommand:arduino.compile",
+        "onCommand:arduino.upload",
+        "onCommand:arduino.serialMonitor",
+        "onCommand:arduino.serialConsole",
+        "onCommand:arduino.serialPlotter",
+        "onCommand:arduino.managerGUI",
+        "onCommand:arduino.sendToSerial",
+        "onCommand:arduino.generateDebugConfig",
+        "onCommand:arduino.installLibrary",
+        "onCommand:arduino.newSketch",
+        "onCommand:arduino.installCore",
+        "onCommand:arduino.autoDetect",
+        "onCommand:arduino.openExample",
+        "onCommand:arduino.updateAll",
+        "onCommand:arduino.exportSerialLog",
         "workspaceContains:**/*.ino"
     ],
     "main": "./dist/extension.js",
@@ -42,6 +62,14 @@
                 "title": "%command.selectBoard%"
             },
             {
+                "command": "arduino.selectPort",
+                "title": "%command.selectPort%"
+            },
+            {
+                "command": "arduino.selectBoardAndPort",
+                "title": "%command.selectBoardAndPort%"
+            },
+            {
                 "command": "arduino.compile",
                 "title": "%command.compile%",
                 "icon": "$(check)"
@@ -54,6 +82,11 @@
             {
                 "command": "arduino.serialMonitor",
                 "title": "%command.serialMonitor%"
+            },
+            {
+                "command": "arduino.serialConsole",
+                "title": "%command.serialConsole%",
+                "icon": "$(terminal)"
             },
             {
                 "command": "arduino.serialPlotter",
@@ -171,6 +204,17 @@
                     "type": "boolean",
                     "default": false,
                     "description": "%config.serialHexView.description%"
+                },
+                "arduino.serialLineEnding": {
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "lf",
+                        "cr",
+                        "crlf"
+                    ],
+                    "default": "lf",
+                    "description": "%config.serialLineEnding.description%"
                 }
             }
         },
@@ -191,9 +235,9 @@
     "scripts": {
         "compile": "node esbuild.js && tsc -p ./",
         "watch": "node esbuild.js --watch",
-        "package": "npx @vscode/vsce package --no-dependencies",
+        "package": "pnpm exec vsce package --no-dependencies",
         "lint": "eslint src --ext ts",
-        "test": "npm run compile && node ./dist/test/runTest.js"
+        "test": "pnpm run compile && node ./dist/test/runTest.js"
     },
     "devDependencies": {
         "@types/glob": "^8.1.0",
@@ -201,6 +245,7 @@
         "@types/node": "^20.0.0",
         "@types/vscode": "^1.85.0",
         "@vscode/test-electron": "^2.3.9",
+        "@vscode/vsce": "^3.9.1",
         "esbuild": "^0.24.0",
         "glob": "^13.0.6",
         "mocha": "^10.4.0",

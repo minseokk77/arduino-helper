@@ -83,6 +83,7 @@ export class ArduinoSidebarProvider implements vscode.WebviewViewProvider {
         const lblCompile = vscode.l10n.t('Compile');
         const lblUpload = vscode.l10n.t('Upload');
         const lblSerialMon = vscode.l10n.t('Serial Mon');
+        const lblSerialConsole = vscode.l10n.t('Console');
         const lblPlotter = vscode.l10n.t('Plotter');
         const lblManagement = vscode.l10n.t('Management');
         const lblManagerDesc = vscode.l10n.t('Arduino Manager (Libraries / Boards)');
@@ -92,6 +93,7 @@ export class ArduinoSidebarProvider implements vscode.WebviewViewProvider {
         const tltCompile = vscode.l10n.t('Verify/Compile Sketch');
         const tltUpload = vscode.l10n.t('Upload to Board');
         const tltSerial = vscode.l10n.t('Open Serial Monitor');
+        const tltSerialConsole = vscode.l10n.t('Open Serial Console');
         const tltPlotter = vscode.l10n.t('Open Serial Plotter');
         const lblMemoryUsage = vscode.l10n.t('Memory Usage');
         const lblFlash = vscode.l10n.t('Flash');
@@ -330,8 +332,12 @@ export class ArduinoSidebarProvider implements vscode.WebviewViewProvider {
             <svg viewBox="0 0 16 16"><path d="M8 14V3.56l-3.22 3.22a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L9 3.56V14a.75.75 0 0 1-1.5 0z"/></svg>
             ${lblUpload}
         </button>
-        <button class="btn" onclick="execute('arduino.serialMonitor')" title="${tltSerial}">
+        <button class="btn" onclick="execute('arduino.serialConsole')" title="${tltSerialConsole}">
             <svg viewBox="0 0 16 16"><path d="M2.5 3h11c.82 0 1.5.68 1.5 1.5v7c0 .82-.68 1.5-1.5 1.5h-11A1.5 1.5 0 0 1 1 11.5v-7C1 3.68 1.68 3 2.5 3zm11 1.5h-11v5h11v-5zM2.5 11h11v.5h-11V11zM4 6.5l3 3 1.5-1.5M4 8.5h4"/></svg>
+            ${lblSerialConsole}
+        </button>
+        <button class="btn" onclick="execute('arduino.serialMonitor')" title="${tltSerial}">
+            <svg viewBox="0 0 16 16"><path d="M2 3h12v10H2V3zm1 1v8h10V4H3zm1 2h2v1H4V6zm3 0h5v1H7V6z"/></svg>
             ${lblSerialMon}
         </button>
         <button class="btn" onclick="execute('arduino.serialPlotter')" title="${tltPlotter}">

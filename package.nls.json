@@ -2,9 +2,12 @@
     "displayName": "Arduino Helper",
     "description": "Arduino CLI-based VS Code extension — compile, upload, serial monitor, board/library management",
     "command.selectBoard": "Arduino: Select Board (보드 선택)",
+    "command.selectPort": "Arduino: Select Port",
+    "command.selectBoardAndPort": "Arduino: Select Board and Port",
     "command.compile": "Arduino: Compile (컴파일)",
     "command.upload": "Arduino: Upload (업로드)",
     "command.serialMonitor": "Arduino: Serial Monitor (시리얼 모니터)",
+    "command.serialConsole": "Arduino: Serial Console",
     "command.serialPlotter": "Arduino: Serial Plotter (시리얼 플로터)",
     "command.managerGUI": "Arduino: Library/Board Manager (라이브러리/보드 매니저)",
     "command.sendToSerial": "Arduino: Send to Serial (시리얼 전송)",
@@ -21,5 +24,6 @@
     "config.autoUpdate.description": "Automatically check and update installed cores and libraries on extension startup",
     "command.exportSerialLog": "Arduino: Export Serial Log",
     "config.serialTimestamps.description": "Prepend a [YYYY-MM-DD HH:MM:SS.mmm] timestamp to each line received from the Serial Monitor.",
-    "config.serialHexView.description": "Display Serial Monitor data in Hex view instead of UTF-8 text."
+    "config.serialHexView.description": "Display Serial Monitor data in Hex view instead of UTF-8 text.",
+    "config.serialLineEnding.description": "Line ending appended when sending text to the Serial Monitor."
 }

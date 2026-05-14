@@ -7,10 +7,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { checkCliInstalled } from './arduino-cli';
-import { selectBoard, autoDetectBoardAndPort } from './board-manager';
+import { selectBoard, selectPort, selectBoardAndPort, autoDetectBoardAndPort, getSerialPortOptions, selectPortByAddress } from './board-manager';
 import { initCompiler, compile } from './compiler';
 import { upload } from './uploader';
-import { openSerialMonitor, closeSerialMonitor, sendDataToSerialMonitor, exportSerialLog } from './serial-monitor';
+import { openSerialMonitor, closeSerialMonitor, sendDataToSerialMonitor, exportSerialLog, writeSerialInput, getSerialConnectionState } from './serial-monitor';
 import { installLibrary, installCore } from './library-manager';
 import { initStatusBar, updateStatusBar } from './status-bar';
 import { updateState, loadWorkspaceState, getState } from './config';
@@ -19,6 +19,7 @@ import { openExample } from './examples-manager';
 import { installCliIfNeeded } from './auto-download';
 import { ArduinoTaskProvider } from './task-provider';
 import { openSerialPlotter } from './webviews/serial-plotter';
+import { openSerialConsole } from './webviews/serial-console';
 import { openManagerGUI } from './webviews/manager-gui';
 import { generateDebugConfig } from './debugger';
 import { updateAll } from './updater';
@@ -116,6 +117,22 @@ export async function activate(
                     sidebarProvider.updateState();
                 },
             },
+            {
+                id: 'arduino.selectPort',
+                handler: async () => {
+                    await selectPort();
+                    updateStatusBar();
+                    sidebarProvider.updateState();
+                },
+            },
+            {
+                id: 'arduino.selectBoardAndPort',
+                handler: async () => {
+                    await selectBoardAndPort();
+                    updateStatusBar();
+                    sidebarProvider.updateState();
+                },
+            },
 
             {
                 id: 'arduino.autoDetect',
@@ -135,11 +152,42 @@ export async function activate(
             },
             {
                 "id": "arduino.serialMonitor",
-                "handler": openSerialMonitor,
+                "handler": async (baudRate?: unknown) => {
+                    await openSerialMonitor(typeof baudRate === 'number' ? baudRate : undefined);
+                },
             },
             {
                 "id": "arduino.serialPlotter",
                 "handler": () => openSerialPlotter(context),
+            },
+            {
+                "id": "arduino.serialConsole",
+                "handler": () => openSerialConsole(
+                    context,
+                    writeSerialInput,
+                    async (command, options) => {
+                        if (command === 'openMonitor') {
+                            if (options?.port) {
+                                await selectPortByAddress(options.port);
+                                updateStatusBar();
+                                sidebarProvider.updateState();
+                            }
+                            await openSerialMonitor(options?.baudRate);
+                        } else if (command === 'closeMonitor') {
+                            closeSerialMonitor();
+                        } else if (command === 'selectPort') {
+                            await vscode.commands.executeCommand('arduino.selectPort');
+                            updateStatusBar();
+                            sidebarProvider.updateState();
+                        } else if (command === 'selectPortAddress' && options?.port) {
+                            await selectPortByAddress(options.port);
+                            updateStatusBar();
+                            sidebarProvider.updateState();
+                        }
+                    },
+                    getSerialConnectionState,
+                    getSerialPortOptions
+                ),
             },
             {
                 "id": "arduino.managerGUI",
@@ -156,6 +204,10 @@ export async function activate(
             {
                 id: 'arduino.exportSerialLog',
                 handler: exportSerialLog,
+            },
+            {
+                id: 'arduino.updateAll',
+                handler: updateAll,
             },
             {
                 id: 'arduino.installLibrary',

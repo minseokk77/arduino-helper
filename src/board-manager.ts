@@ -32,6 +32,20 @@ interface BoardListAllItem {
     };
 }
 
+interface PortQuickPickItem extends vscode.QuickPickItem {
+    portAddress: string;
+    boardName?: string;
+    fqbn?: string;
+}
+
+export interface SerialPortOption {
+    address: string;
+    label: string;
+    boardName?: string;
+    fqbn?: string;
+    protocol?: string;
+}
+
 /**
  * 현재 USB로 연결된 보드/포트 목록을 가져옵니다.
  * @returns 감지된 포트 목록
@@ -170,6 +184,127 @@ export async function selectBoard(): Promise<void> {
     }
 }
 
+export async function selectPort(): Promise<void> {
+    try {
+        const connectedPorts = await getConnectedBoards();
+
+        if (connectedPorts.length === 0) {
+            vscode.window.showWarningMessage(vscode.l10n.t('No boards connected. Check the USB cable.'));
+            return;
+        }
+
+        const items: PortQuickPickItem[] = connectedPorts.map((detected) => {
+            const primaryBoard = detected.matching_boards?.[0];
+            const labelParts = ['$(plug)', detected.port.address];
+            if (detected.port.label && detected.port.label !== detected.port.address) {
+                labelParts.push(`- ${detected.port.label}`);
+            }
+
+            return {
+                label: labelParts.join(' '),
+                description: primaryBoard?.name ?? vscode.l10n.t('Unknown board'),
+                detail: vscode.l10n.t(
+                    'Board: {0} | Protocol: {1}',
+                    primaryBoard?.fqbn ?? vscode.l10n.t('Unknown board'),
+                    detected.port.protocol_label || detected.port.protocol || 'unknown'
+                ),
+                portAddress: detected.port.address,
+                boardName: primaryBoard?.name,
+                fqbn: primaryBoard?.fqbn,
+            };
+        });
+
+        const selected = await vscode.window.showQuickPick(items, {
+            placeHolder: vscode.l10n.t('Select a port'),
+            matchOnDescription: true,
+            matchOnDetail: true,
+        });
+
+        if (!selected) {
+            return;
+        }
+
+        const previousState = getState();
+        updateState({
+            selectedPort: selected.portAddress,
+            selectedFqbn: selected.fqbn ?? previousState.selectedFqbn,
+            selectedBoardName: selected.boardName ?? previousState.selectedBoardName,
+        });
+
+        vscode.window.showInformationMessage(vscode.l10n.t('Port selected: {0}', selected.portAddress));
+    } catch (error) {
+        const message =
+            error instanceof Error ? error.message : vscode.l10n.t('Unknown error');
+        vscode.window.showErrorMessage(vscode.l10n.t('Port selection failed: {0}', message));
+    }
+}
+
+export async function getSerialPortOptions(): Promise<SerialPortOption[]> {
+    const connectedPorts = await getConnectedBoards();
+    return connectedPorts.map((detected) => {
+        const primaryBoard = detected.matching_boards?.[0];
+        return {
+            address: detected.port.address,
+            label: detected.port.label || detected.port.address,
+            boardName: primaryBoard?.name,
+            fqbn: primaryBoard?.fqbn,
+            protocol: detected.port.protocol_label || detected.port.protocol,
+        };
+    });
+}
+
+export async function selectPortByAddress(portAddress: string): Promise<boolean> {
+    const connectedPorts = await getConnectedBoards();
+    const detected = connectedPorts.find((port) => port.port.address === portAddress);
+
+    if (!detected) {
+        return false;
+    }
+
+    const primaryBoard = detected.matching_boards?.[0];
+    const previousState = getState();
+    updateState({
+        selectedPort: detected.port.address,
+        selectedFqbn: primaryBoard?.fqbn ?? previousState.selectedFqbn,
+        selectedBoardName: primaryBoard?.name ?? previousState.selectedBoardName,
+    });
+
+    return true;
+}
+
+export async function selectBoardAndPort(): Promise<void> {
+    const selected = await vscode.window.showQuickPick(
+        [
+            {
+                label: `$(circuit-board) ${vscode.l10n.t('Select Board')}`,
+                description: vscode.l10n.t('Select the Arduino board type.'),
+                action: 'board',
+            },
+            {
+                label: `$(plug) ${vscode.l10n.t('Select Port')}`,
+                description: vscode.l10n.t('Select the connected USB port.'),
+                action: 'port',
+            },
+            {
+                label: `$(zap) ${vscode.l10n.t('Auto-detect Board/Port')}`,
+                description: vscode.l10n.t('Finds a single board connected via USB and sets it automatically.'),
+                action: 'auto',
+            },
+        ],
+        {
+            placeHolder: vscode.l10n.t('Select an item to change or configure board/port'),
+        }
+    );
+
+    if (selected?.action === 'board') {
+        await selectBoard();
+    } else if (selected?.action === 'port') {
+        await selectPort();
+    } else if (selected?.action === 'auto') {
+        await autoDetectBoardAndPort();
+    }
+}
+
 
 
 /**
@@ -185,13 +320,26 @@ export async function autoDetectBoardAndPort(): Promise<void> {
         );
 
         if (validPorts.length === 0) {
+            if (connectedPorts.length === 1) {
+                const port = connectedPorts[0];
+                updateState({ selectedPort: port.port.address });
+                vscode.window.showInformationMessage(vscode.l10n.t('Port selected: {0}', port.port.address));
+                return;
+            }
+
+            if (connectedPorts.length > 1) {
+                vscode.window.showInformationMessage(vscode.l10n.t('Multiple boards connected. Please select manually.'));
+                await selectPort();
+                return;
+            }
+
             vscode.window.showWarningMessage(vscode.l10n.t('Auto-detect failed: No compatible boards connected.'));
             return;
         }
 
         if (validPorts.length > 1) {
             vscode.window.showInformationMessage(vscode.l10n.t('Multiple boards connected. Please select manually.'));
-            await selectBoard();
+            await selectBoardAndPort();
             return;
         }
 

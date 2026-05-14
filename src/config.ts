@@ -16,6 +16,7 @@ export interface ArduinoConfig {
     defaultBaudRate: number;
     /** USB 연결 시 보드 자동 감지 여부 */
     autoDetectBoard: boolean;
+    serialLineEnding: 'none' | 'lf' | 'cr' | 'crlf';
 }
 
 /** 런타임 상태 (현재 선택된 보드/포트) */
@@ -48,6 +49,7 @@ export function getConfig(): ArduinoConfig {
         cliPath: state.downloadedCliPath || config.get<string>('cliPath', 'arduino-cli'),
         defaultBaudRate: config.get<number>('defaultBaudRate', 9600),
         autoDetectBoard: config.get<boolean>('autoDetectBoard', true),
+        serialLineEnding: config.get<'none' | 'lf' | 'cr' | 'crlf'>('serialLineEnding', 'lf'),
     };
 }
 

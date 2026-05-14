@@ -2,11 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
-/**
- * 새 Arduino 스케치를 생성합니다.
- */
 export async function newSketch(): Promise<void> {
-    // 스케치 이름 입력
     const sketchName = await vscode.window.showInputBox({
         prompt: vscode.l10n.t('Enter sketch name'),
         placeHolder: vscode.l10n.t('e.g.: Blink, ServoTest, SensorReader'),
@@ -25,7 +21,6 @@ export async function newSketch(): Promise<void> {
         return;
     }
 
-    // 스케치 위치 선택
     const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri;
     const targetFolder = await vscode.window.showOpenDialog({
         canSelectFiles: false,
@@ -42,7 +37,6 @@ export async function newSketch(): Promise<void> {
     const sketchDir = path.join(targetFolder[0].fsPath, sketchName);
     const sketchFile = path.join(sketchDir, `${sketchName}.ino`);
 
-    // 디렉토리 생성
     try {
         fs.mkdirSync(sketchDir, { recursive: true });
     } catch (error) {
@@ -52,39 +46,36 @@ export async function newSketch(): Promise<void> {
         return;
     }
 
-    // 기본 템플릿 코드
     const template = `/**
- * ${sketchName} — Arduino Sketch
+ * ${sketchName} Arduino sketch
  * Created: ${new Date().toISOString().split('T')[0]}
  */
 
-/**
- * ${vscode.l10n.t('Initial setup — Runs once when board powers on.')}
- */
 void setup() {
-  // ${vscode.l10n.t('Initialize serial communication (baud rate: 9600)')}
   Serial.begin(9600);
-
-  // ${vscode.l10n.t('TODO: Set pin modes, write initialization code')}
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.println("Sketch ready");
 }
 
-/**
- * ${vscode.l10n.t('Main loop — Repeats indefinitely after setup().')}
- */
 void loop() {
-  // ${vscode.l10n.t('TODO: Write code to repeat')}
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(500);
+
+  Serial.println("tick");
 }
 `;
 
     try {
-        fs.writeFileSync(sketchFile, template, 'utf-8');
+        fs.writeFileSync(sketchFile, template, 'utf8');
 
-        // 생성된 파일 열기
         const doc = await vscode.workspace.openTextDocument(sketchFile);
-        await vscode.window.showTextDocument(doc);
+        await vscode.languages.setTextDocumentLanguage(doc, 'arduino');
+        await vscode.window.showTextDocument(doc, { preview: false });
 
         vscode.window.showInformationMessage(
-            `✅ ${vscode.l10n.t('New sketch "{0}" created!', sketchName)}`
+            vscode.l10n.t('New sketch "{0}" created!', sketchName)
         );
     } catch (error) {
         const message =

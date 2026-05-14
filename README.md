@@ -1,83 +1,67 @@
 # Arduino Helper
 
-<p align="center">
-  <a href="#english">English</a> | <a href="#한국어">한국어</a>
-</p>
+Arduino CLI-based VS Code and VSCodium extension for compiling, uploading, serial communication, and board/library management directly from the editor.
 
----
+## Features
 
-## English
+- **Auto-Download CLI**: Automatically downloads `arduino-cli` if it is not found.
+- **Board Selection**: Select from installed Arduino-compatible boards.
+- **Port Selection**: Pick connected serial ports, including ports whose board type is unknown.
+- **Compile & Upload**: Compile and upload sketches from VS Code.
+- **Serial Console**: Webview console with RX/TX log, port selection, baud rate selection, line ending selection, pause, autoscroll, clear, export, and input history.
+- **Serial Monitor**: Terminal-based `arduino-cli monitor` integration.
+- **Serial Plotter**: Visualize real-time numeric telemetry with Chart.js.
+- **Manager GUI**: Search and install libraries and board cores from a webview.
+- **IntelliSense & Clangd**: Generates `c_cpp_properties.json` and `compile_commands.json`.
+- **Code Snippets**: Built-in Arduino snippets such as `setup`, `loop`, and `pm`.
+- **Hardware Debugging**: Generate `launch.json` for Cortex-Debug.
+- **Example Sketches**: Browse and open examples from installed libraries and cores.
 
-Arduino CLI-based VS Code extension — compile, upload, serial monitor, and board/library management directly from VS Code.
+## Requirements
 
-### Features
+- `arduino-cli` installed and available in `PATH`, or let the extension download it automatically.
+- On Linux, your user may need serial-port permission, for example membership in the `dialout` group.
 
-- **Auto-Download CLI** — Automatically downloads `arduino-cli` if not found (v0.2.2+)
-- **Board Selection** — Select from all installed boards
-- **Port Selection** — Pick connected COM ports (auto-detects USB boards)
-- **Compile & Upload** — Integrated `Ctrl+Shift+B` TaskProvider support
-- **Serial Monitor** — Interactive serial monitor in the terminal
-- **Serial Plotter (GUI)** — Visualize real-time telemetry data with Chart.js
-- **Manager GUI (Webview)** — Visually search and install boards and libraries
-- **IntelliSense & Clangd** — Generates `c_cpp_properties.json` and `compile_commands.json`
-- **Code Snippets** — Built-in Arduino snippets (`setup`, `loop`, `pm`, etc.)
-- **Hardware Debugging** — Auto-generate `launch.json` for Cortex-Debug
-- **Example Sketches** — Browse and open library/core examples
+## Serial Console
 
-### Prerequisites
+Open `Arduino: Serial Console` from the Command Palette or the Arduino dashboard.
 
-- [arduino-cli](https://arduino.github.io/arduino-cli/latest/installation/) installed and added to PATH
+1. Press **Refresh** to load available ports.
+2. Select a port.
+3. Choose a baud rate and line ending.
+4. Press **Open**.
+5. Send text from the input box.
 
-### Settings
+The console shows TX and RX separately and can export the visible log.
+
+## Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `arduino.cliPath` | `arduino-cli` | Path to arduino-cli |
+| `arduino.cliPath` | `arduino-cli` | Path to the Arduino CLI executable |
 | `arduino.defaultBaudRate` | `9600` | Default serial monitor baud rate |
-| `arduino.autoDetectBoard` | `true` | Auto-detect USB boards |
+| `arduino.autoDetectBoard` | `true` | Auto-detect board on USB connection |
+| `arduino.serialTimestamps` | `false` | Add timestamps to received serial lines |
+| `arduino.serialHexView` | `false` | Display received serial bytes as hex |
+| `arduino.serialLineEnding` | `lf` | Line ending for serial input: `none`, `lf`, `cr`, or `crlf` |
 
-### Localization
+## Development
 
-This extension supports **English** and **Korean** based on your VS Code display language.
-To switch language, run `Configure Display Language` from the Command Palette.
+This repository uses `pnpm`.
 
----
+```powershell
+pnpm install
+pnpm run compile
+pnpm run package
+```
 
-## 한국어
+If `pnpm` is not installed directly, use Node's Corepack:
 
-Arduino CLI 기반 VS Code 확장 — 컴파일, 업로드, 시리얼 모니터, 보드/라이브러리 관리를 VS Code에서 직접 수행합니다.
-
-### 기능
-
-- **CLI 자동 다운로드** — `arduino-cli`가 없으면 자동으로 다운로드 (v0.2.2+)
-- **보드 & 포트 선택** — 설치된 플러그인에서 보드 선택 및 연결된 USB 자동 감지
-- **컴파일 및 업로드** — `Ctrl+Shift+B` 빌드 단축키(Task 연동)를 통한 빠른 컴파일/업로드
-- **시리얼 모니터** — 가상 터미널 환경에서 입출력이 가능한 시리얼 통신
-- **시리얼 플로터 (GUI)** — 센서 출력 데이터를 실시간 다중 채널 그래프(Chart.js)로 시각화
-- **매니저 대시보드 (Webview)** — 라이브러리 및 보드 코어를 시각적인 화면에서 검색/설치
-- **인텔리센스 & Clangd** — `c_cpp_properties.json` 및 `compile_commands.json` 자동 생성 지원
-- **코드 스니펫** — `setup`, `loop`, `pm` 등 필수 아두이노 코드 자동완성
-- **하드웨어 디버깅** — OpenOCD 및 Cortex-Debug를 위한 `launch.json` 자동 구성
-- **예제 스케치** — 라이브러리/코어의 예제를 탐색하고 새 창으로 열기
-
-### 사전 요구 사항
-
-- [arduino-cli](https://arduino.github.io/arduino-cli/latest/installation/) 설치 및 PATH 등록
-
-### 설정
-
-| 설정 | 기본값 | 설명 |
-|------|--------|------|
-| `arduino.cliPath` | `arduino-cli` | arduino-cli 경로 |
-| `arduino.defaultBaudRate` | `9600` | 시리얼 모니터 기본 보드레이트 |
-| `arduino.autoDetectBoard` | `true` | USB 보드 자동 감지 |
-
-### 다국어 지원
-
-이 확장은 VS Code 디스플레이 언어에 따라 **영어**와 **한국어**를 자동으로 전환합니다.
-언어 변경은 커맨드 팔레트에서 `Configure Display Language`를 실행하세요.
-
----
+```powershell
+corepack pnpm install
+corepack pnpm run compile
+corepack pnpm run package
+```
 
 ## License
 

@@ -6,3 +6,6 @@ esbuild.js
 **/*.ts
 **/*.map
 .gitignore
+.env*
+*.vsix
+pnpm-lock.yaml

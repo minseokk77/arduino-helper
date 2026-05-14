@@ -7,22 +7,128 @@ import * as vscode from 'vscode';
 import { spawn, ChildProcess } from 'child_process';
 import { getConfig, getState } from './config';
 import { sendDataToPlotter } from './webviews/serial-plotter';
+import { sendDataToConsole, sendTxToConsole, updateConsoleConnection } from './webviews/serial-console';
 
 /** 활성 시리얼 모니터 터미널 탭 (export 하여 외부에서도 닫을 수 있게) */
 export let monitorTerminal: vscode.Terminal | undefined;
 /** 내부 arduino-cli 프로세스 */
 let monitorProcess: ChildProcess | undefined;
+let activePort: string | undefined;
+let activeBaudRate: number | undefined;
 
 /** 내보내기용 시리얼 로그 버퍼 (최대 5000 청크 유지) */
 export const serialLogBuffer: string[] = [];
+
+const serialInputHistory: string[] = [];
+const maxSerialInputHistory = 20;
+
+export type SerialLineEnding = 'none' | 'lf' | 'cr' | 'crlf';
+
+function appendSerialLineEnding(input: string, lineEnding?: SerialLineEnding): string {
+    const ending = lineEnding ?? getConfig().serialLineEnding;
+
+    switch (ending) {
+        case 'none':
+            return input;
+        case 'cr':
+            return `${input}\r`;
+        case 'crlf':
+            return `${input}\r\n`;
+        case 'lf':
+        default:
+            return `${input}\n`;
+    }
+}
+
+function rememberSerialInput(input: string): void {
+    const trimmed = input.trim();
+    if (!trimmed) {
+        return;
+    }
+
+    const existingIndex = serialInputHistory.indexOf(input);
+    if (existingIndex >= 0) {
+        serialInputHistory.splice(existingIndex, 1);
+    }
+
+    serialInputHistory.unshift(input);
+    if (serialInputHistory.length > maxSerialInputHistory) {
+        serialInputHistory.pop();
+    }
+}
+
+async function pickSerialInput(): Promise<string | undefined> {
+    if (serialInputHistory.length === 0) {
+        return vscode.window.showInputBox({
+            prompt: vscode.l10n.t('Enter text to send to the Serial Monitor'),
+            placeHolder: vscode.l10n.t('e.g.: AT, HELLO...'),
+        });
+    }
+
+    const selected = await vscode.window.showQuickPick(
+        [
+            {
+                label: `$(edit) ${vscode.l10n.t('Type new serial input')}`,
+                value: undefined,
+            },
+            ...serialInputHistory.map((value) => ({
+                label: value,
+                description: vscode.l10n.t('Recent serial input'),
+                value,
+            })),
+        ],
+        {
+            placeHolder: vscode.l10n.t('Send text/data to the connected Serial Monitor.'),
+            matchOnDescription: true,
+        }
+    );
+
+    if (!selected) {
+        return undefined;
+    }
+
+    if (selected.value !== undefined) {
+        return selected.value;
+    }
+
+    return vscode.window.showInputBox({
+        prompt: vscode.l10n.t('Enter text to send to the Serial Monitor'),
+        placeHolder: vscode.l10n.t('e.g.: AT, HELLO...'),
+        value: serialInputHistory[0] ?? '',
+        valueSelection: [0, serialInputHistory[0]?.length ?? 0],
+    });
+}
+
+export function isSerialMonitorRunning(): boolean {
+    return Boolean(monitorProcess?.stdin);
+}
+
+export function getSerialConnectionState(): { connected: boolean; port?: string; baudRate?: number } {
+    return {
+        connected: isSerialMonitorRunning(),
+        port: activePort,
+        baudRate: activeBaudRate,
+    };
+}
+
+export function writeSerialInput(input: string, lineEnding?: SerialLineEnding): boolean {
+    if (!monitorProcess?.stdin) {
+        return false;
+    }
+
+    rememberSerialInput(input);
+    monitorProcess.stdin.write(appendSerialLineEnding(input, lineEnding));
+    sendTxToConsole(input);
+    return true;
+}
 
 
 /**
  * 시리얼 모니터를 엽니다.
  * 이미 열려있으면 기존 터미널을 활성화합니다.
  */
-export async function openSerialMonitor(): Promise<void> {
-    const state = getState();
+export async function openSerialMonitor(baudRateOverride?: number): Promise<void> {
+    let state = getState();
     const config = getConfig();
 
     if (!state.selectedPort) {
@@ -32,8 +138,13 @@ export async function openSerialMonitor(): Promise<void> {
         );
         if (action === vscode.l10n.t('Select Port')) {
             await vscode.commands.executeCommand('arduino.selectPort');
+            state = getState();
+            if (!state.selectedPort) {
+                return;
+            }
+        } else {
+            return;
         }
-        return;
     }
 
     // 보드레이트 선택 (QuickPick)
@@ -48,13 +159,13 @@ export async function openSerialMonitor(): Promise<void> {
         '921600',
     ];
 
-    const selectedBaud = await vscode.window.showQuickPick(baudRates, {
-        placeHolder: vscode.l10n.t('Select baud rate (default: {0})', config.defaultBaudRate),
-    });
+    const selectedBaud = baudRateOverride
+        ? String(baudRateOverride)
+        : await vscode.window.showQuickPick(baudRates, {
+            placeHolder: vscode.l10n.t('Select baud rate (default: {0})', config.defaultBaudRate),
+        });
 
-    const baudRate = selectedBaud
-        ? parseInt(selectedBaud, 10)
-        : config.defaultBaudRate;
+    const baudRate = selectedBaud ? parseInt(selectedBaud, 10) : config.defaultBaudRate;
 
     // 기존 시리얼 모니터 터미널이 있으면 종료
     if (monitorTerminal) {
@@ -80,6 +191,9 @@ export async function openSerialMonitor(): Promise<void> {
     });
 
     monitorTerminal.show();
+    activePort = state.selectedPort;
+    activeBaudRate = baudRate;
+    updateConsoleConnection(true, state.selectedPort, baudRate);
 
     // 터미널이 닫히면 정리
     vscode.window.onDidCloseTerminal((terminal) => {
@@ -89,6 +203,9 @@ export async function openSerialMonitor(): Promise<void> {
                 monitorProcess.kill();
                 monitorProcess = undefined;
             }
+            activePort = undefined;
+            activeBaudRate = undefined;
+            updateConsoleConnection(false);
         }
     });
 }
@@ -101,10 +218,13 @@ export function closeSerialMonitor(): void {
         monitorProcess.kill();
         monitorProcess = undefined;
     }
+    activePort = undefined;
+    activeBaudRate = undefined;
     if (monitorTerminal) {
         monitorTerminal.dispose();
         monitorTerminal = undefined;
     }
+    updateConsoleConnection(false);
 }
 
 /**
@@ -116,14 +236,11 @@ export async function sendDataToSerialMonitor(): Promise<void> {
         return;
     }
 
-    const input = await vscode.window.showInputBox({
-        prompt: vscode.l10n.t('Enter text to send to the Serial Monitor'),
-        placeHolder: vscode.l10n.t('e.g.: AT, HELLO...'),
-    });
+    const input = await pickSerialInput();
 
     if (input !== undefined) {
         // stdin으로 데이터 밀어넣기 (아두이노의 경우 주로 LF 또는 CRLF를 끝에 요구)
-        monitorProcess.stdin?.write(input + '\n');
+        writeSerialInput(input);
     }
 }
 
@@ -218,6 +335,7 @@ class SerialMonitorPty implements vscode.Pseudoterminal {
 
             // 시리얼 플로터로 데이터 브로드캐스트 (기존 문자열 그대로)
             sendDataToPlotter(data.toString());
+            sendDataToConsole(data.toString());
         });
 
         monitorProcess.stderr?.on('data', (data: Buffer) => {
@@ -228,11 +346,17 @@ class SerialMonitorPty implements vscode.Pseudoterminal {
         monitorProcess.on('close', (code) => {
             this.writeEmitter.fire(`\r\n\x1b[31m[Arduino Helper] Disconnected (Exit Code: ${code})\x1b[0m\r\n`);
             monitorProcess = undefined;
+            activePort = undefined;
+            activeBaudRate = undefined;
+            updateConsoleConnection(false, this.port);
         });
 
         monitorProcess.on('error', (err) => {
             this.writeEmitter.fire(`\r\n\x1b[31m[Error] Failed to start monitor: ${err.message}\x1b[0m\r\n`);
             monitorProcess = undefined;
+            activePort = undefined;
+            activeBaudRate = undefined;
+            updateConsoleConnection(false, this.port);
         });
     }
 
@@ -255,7 +379,7 @@ class SerialMonitorPty implements vscode.Pseudoterminal {
         if (data === '\r') {
             this.writeEmitter.fire('\r\n');
             // 엔터 입력 시 버퍼 내용을 시리얼로 전송 (아두이노의 경우 주로 LF로 끝남)
-            monitorProcess.stdin.write(this.inputBuffer + '\n');
+            writeSerialInput(this.inputBuffer);
             this.inputBuffer = '';
         } else if (data === '\x7f') { // 백스페이스(Backspace) 처리
             if (this.inputBuffer.length > 0) {
