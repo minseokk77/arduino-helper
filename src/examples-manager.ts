@@ -81,6 +81,80 @@ function basename(fullPath: string): string {
     return fullPath.split(/[\/\\]/).pop() || fullPath;
 }
 
+function sanitizeFolderName(name: string): string {
+    return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim() || 'ArduinoExample';
+}
+
+function getUniqueFolderPath(parent: string, folderName: string): string {
+    const basePath = path.join(parent, folderName);
+    if (!fs.existsSync(basePath)) {
+        return basePath;
+    }
+
+    for (let i = 2; i < 100; i++) {
+        const candidate = path.join(parent, `${folderName}_${i}`);
+        if (!fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+
+    return path.join(parent, `${folderName}_${Date.now()}`);
+}
+
+function findFirstInoFile(folderPath: string): string | undefined {
+    const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+    const inoFile = entries.find((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.ino'));
+    if (inoFile) {
+        return path.join(folderPath, inoFile.name);
+    }
+
+    for (const entry of entries) {
+        if (entry.isDirectory()) {
+            const nested = findFirstInoFile(path.join(folderPath, entry.name));
+            if (nested) {
+                return nested;
+            }
+        }
+    }
+
+    return undefined;
+}
+
+async function copyExampleToEditableWorkspace(examplePath: string, exampleName: string): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    let targetParent = workspaceFolder;
+
+    if (!targetParent) {
+        const selectedFolder = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: vscode.l10n.t('Select example copy location'),
+        });
+        targetParent = selectedFolder?.[0]?.fsPath;
+    }
+
+    if (!targetParent) {
+        return;
+    }
+
+    const targetFolder = getUniqueFolderPath(targetParent, sanitizeFolderName(exampleName));
+    fs.cpSync(examplePath, targetFolder, { recursive: true });
+
+    const inoFile = findFirstInoFile(targetFolder);
+    if (inoFile) {
+        const doc = await vscode.workspace.openTextDocument(inoFile);
+        const arduinoDoc = await vscode.languages.setTextDocumentLanguage(doc, 'arduino');
+        await vscode.window.showTextDocument(arduinoDoc, { preview: false });
+    } else {
+        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(targetFolder), false);
+    }
+
+    vscode.window.showInformationMessage(
+        vscode.l10n.t('Example copied for editing: {0}', targetFolder)
+    );
+}
+
 interface LibraryQuickPickItem extends vscode.QuickPickItem {
     libData?: LibraryExample;
 }
@@ -214,18 +288,24 @@ async function showExamplePicker(
             return;
         }
 
-        const folderUri = vscode.Uri.file(selected.detail);
         const exampleName = selected.label.replace('$(file-code) ', '');
 
         const action = await vscode.window.showInformationMessage(
             vscode.l10n.t('How would you like to open the "{0}" example?', exampleName),
-            vscode.l10n.t('Open in New Window'),
-            vscode.l10n.t('Open in Current Window')
+            vscode.l10n.t('Copy to Workspace'),
+            vscode.l10n.t('Open Original in New Window'),
+            vscode.l10n.t('Open Original in Current Window')
         );
 
-        if (action === vscode.l10n.t('Open in New Window')) {
+        if (action === vscode.l10n.t('Copy to Workspace')) {
+            await copyExampleToEditableWorkspace(selected.detail, exampleName);
+            return;
+        }
+
+        const folderUri = vscode.Uri.file(selected.detail);
+        if (action === vscode.l10n.t('Open Original in New Window')) {
             vscode.commands.executeCommand('vscode.openFolder', folderUri, true);
-        } else if (action === vscode.l10n.t('Open in Current Window')) {
+        } else if (action === vscode.l10n.t('Open Original in Current Window')) {
             vscode.commands.executeCommand('vscode.openFolder', folderUri, false);
         }
     });

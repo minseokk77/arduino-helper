@@ -71,8 +71,8 @@ void loop() {
         fs.writeFileSync(sketchFile, template, 'utf8');
 
         const doc = await vscode.workspace.openTextDocument(sketchFile);
-        await vscode.languages.setTextDocumentLanguage(doc, 'arduino');
-        await vscode.window.showTextDocument(doc, { preview: false });
+        const arduinoDoc = await vscode.languages.setTextDocumentLanguage(doc, 'arduino');
+        await vscode.window.showTextDocument(arduinoDoc, { preview: false });
 
         vscode.window.showInformationMessage(
             vscode.l10n.t('New sketch "{0}" created!', sketchName)
