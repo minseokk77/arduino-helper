@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { spawn, ChildProcess } from 'child_process';
 import { getConfig, getState } from './config';
+import { getSerialPortOptions, selectPortByAddress, type SerialPortOption } from './board-manager';
 import { sendDataToPlotter } from './webviews/serial-plotter';
 import { sendDataToConsole, sendTxToConsole, updateConsoleConnection } from './webviews/serial-console';
 
@@ -122,24 +123,73 @@ export function writeSerialInput(input: string, lineEnding?: SerialLineEnding): 
     return true;
 }
 
+async function ensureSelectedSerialPort(): Promise<string | undefined> {
+    let state = getState();
+    const ports = await getSerialPortOptions();
+
+    if (state.selectedPort && ports.some((port) => port.address === state.selectedPort)) {
+        return state.selectedPort;
+    }
+
+    if (state.selectedPort) {
+        vscode.window.showWarningMessage(
+            vscode.l10n.t('Selected serial port "{0}" is not currently available.', state.selectedPort)
+        );
+    }
+
+    if (ports.length === 0) {
+        vscode.window.showWarningMessage(vscode.l10n.t('No serial ports found. Check the USB cable.'));
+        return undefined;
+    }
+
+    const boardPorts = ports.filter((port) => port.boardName);
+    const autoPort = boardPorts.length === 1 ? boardPorts[0] : ports.length === 1 ? ports[0] : undefined;
+    if (autoPort) {
+        await selectPortByAddress(autoPort.address);
+        return autoPort.address;
+    }
+
+    const selected = await vscode.window.showQuickPick(
+        ports.map((port) => ({
+            label: port.address,
+            description: port.boardName ?? vscode.l10n.t('Unknown board'),
+            detail: [port.label, port.protocol].filter(Boolean).join(' | '),
+            port,
+        })),
+        {
+            placeHolder: vscode.l10n.t('Select a port'),
+            matchOnDescription: true,
+            matchOnDetail: true,
+        }
+    );
+
+    if (!selected) {
+        return undefined;
+    }
+
+    await selectPortByAddress((selected.port as SerialPortOption).address);
+    state = getState();
+    return state.selectedPort;
+}
+
 
 /**
  * 시리얼 모니터를 엽니다.
  * 이미 열려있으면 기존 터미널을 활성화합니다.
  */
 export async function openSerialMonitor(baudRateOverride?: number): Promise<void> {
-    let state = getState();
     const config = getConfig();
+    let selectedPort = await ensureSelectedSerialPort();
 
-    if (!state.selectedPort) {
+    if (!selectedPort) {
         const action = await vscode.window.showWarningMessage(
             vscode.l10n.t('No port selected.'),
             vscode.l10n.t('Select Port')
         );
         if (action === vscode.l10n.t('Select Port')) {
             await vscode.commands.executeCommand('arduino.selectPort');
-            state = getState();
-            if (!state.selectedPort) {
+            selectedPort = await ensureSelectedSerialPort();
+            if (!selectedPort) {
                 return;
             }
         } else {
@@ -176,24 +226,26 @@ export async function openSerialMonitor(baudRateOverride?: number): Promise<void
     const args = [
         'monitor',
         '-p',
-        state.selectedPort,
+        selectedPort,
+        '--discovery-timeout',
+        '5s',
         '--config',
         `baudrate=${baudRate}`,
     ];
 
     // 가상 터미널 (Pseudoterminal)을 생성하여 arduino-cli 출력 가로채기
-    const pty = new SerialMonitorPty(cliPath, args, state.selectedPort);
+    const pty = new SerialMonitorPty(cliPath, args, selectedPort);
 
     monitorTerminal = vscode.window.createTerminal({
-        name: vscode.l10n.t('Serial ({0})', state.selectedPort),
+        name: vscode.l10n.t('Serial ({0})', selectedPort),
         pty: pty,
         iconPath: new vscode.ThemeIcon('plug'),
     });
 
     monitorTerminal.show();
-    activePort = state.selectedPort;
+    activePort = selectedPort;
     activeBaudRate = baudRate;
-    updateConsoleConnection(true, state.selectedPort, baudRate);
+    updateConsoleConnection(true, selectedPort, baudRate);
 
     // 터미널이 닫히면 정리
     vscode.window.onDidCloseTerminal((terminal) => {
